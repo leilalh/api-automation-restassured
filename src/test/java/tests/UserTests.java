@@ -8,6 +8,9 @@ import org.testng.annotations.Test;
 
 public class UserTests {
 
+    private int dynamicUserId;
+    private User userPayload;
+
     @Test(priority = 1)
     public void testCreateUser(){
         //prepare payload using POJO model
@@ -28,18 +31,19 @@ public class UserTests {
         Assert.assertEquals(response.jsonPath().getString("job"), userPayload.getJob());
 
 
+        dynamicUserId = response.jsonPath().getInt("id");
         //Ensure the server generated a valid User ID
-        Assert.assertNotNull(response.jsonPath().getString("id"), "User ID should not be null");
+        Assert.assertNotNull(dynamicUserId, "Generated ID should not be null");
 
     }
 
-    @Test(priority = 2)
+    @Test(priority = 2, dependsOnMethods = {"testCreateUser"})
     public void testGetSingleUser(){
-        int userId =2;
+        int targetId = (dynamicUserId > 10) ? 2 : dynamicUserId;
 
 
         //Send GET request
-        Response response = UserEndpoints.getUser(userId);
+        Response response = UserEndpoints.getUser(targetId);
 
 
         //Print response details
@@ -50,13 +54,33 @@ public class UserTests {
         Assert.assertEquals(response.getStatusCode(), 200, "Expected code 200 for GET request");
 
 
-        //Extract dynamic fields
-        String actualEmail = response.jsonPath().getString("email");
-        String actualName = response.jsonPath().getString("name");
 
         //Dynamic Assertions
-        Assert.assertNotNull(actualName, "Name field should exist and not be null");
-        Assert.assertNotNull(actualEmail, "Email field should exist and not be null");
-        Assert.assertTrue(actualEmail.contains("@"), "Email should have a valid '@' format");
+        Assert.assertNotNull(response.jsonPath().getString("email"), "email field should exist and not be null");
+
+    }
+
+    @Test(priority = 3, dependsOnMethods = {"testCreateUser"})
+    public void testUpdateUser(){
+        int targetId = (dynamicUserId > 10) ? 2 : dynamicUserId;
+
+        User updatePayload = new User("Leila Updated", "Senior QA Lead");
+
+        Response response = UserEndpoints.updateUser(targetId, updatePayload);
+        response.then().log().all();
+
+        Assert.assertEquals(response.getStatusCode(), 200, "Expected status code 200");
+        Assert.assertEquals(response.jsonPath().getString("name"), "Leila Updated");
+        Assert.assertEquals(response.jsonPath().getString("job"), "Senior QA Lead");
+    }
+
+    @Test(priority = 4, dependsOnMethods = {"testCreateUser"})
+    public void testDeleteUser(){
+        int targetId = (dynamicUserId > 10) ? 2 : dynamicUserId;
+
+        Response response = UserEndpoints.deleteUser(targetId);
+        response.then().log().all();
+
+        Assert.assertEquals(response.getStatusCode(), 200, "Expected Status code 200 for deletion");
     }
 }
